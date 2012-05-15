@@ -1,6 +1,11 @@
+// The three contenders:
 #include <vector>
-#include <iostream>
 #include <set>
+#include <list>
+
+#include <queue>
+#include <iostream>
+#include <iomanip>
 #include <sstream>
 #include <algorithm>
 #include <err.h>
@@ -9,37 +14,123 @@
 
 using namespace std;
 
-int main(int argc, char ** argv) {
-	if (argc < 2) return errx(1, "Usage: %s n", argv[0]), 1;
+// Find first element in container greater than or equal to a given key.
+template <typename Container, typename T>
+typename Container::iterator find(Container & c, const T & value);
 
-	boost::mt19937 r;
+// For vectors, perform binary search.
+template <typename T>
+typename vector<T>::iterator find(vector<T> & c, const T & value) {
+	return lower_bound(c.begin(), c.end(), value);
+}
 
-	size_t n;
-	stringstream(argv[1]) >> n;
+// For sets, perform binary tree search.
+template <typename T>
+typename set<T>::iterator find(set<T> & c, const T & value) {
+	return c.lower_bound(value);
+}
 
-	vector<int> elements(n);
-	generate(elements.begin(), elements.end(), r);
+// For lists, perform linear search.
+template <typename T>
+typename list<T>::iterator find(list<T> & c, const T & value) {
+	for (auto i = c.begin(); i != c.end(); ++i)
+		if (!(*i < value)) return i;
+	return c.end();
+}
 
-	vector<int> other_elements(elements);
-	shuffle(other_elements.begin(), other_elements.end(), r);
-
-	int * a = new int[n];
-	{
-		boost::timer::auto_cpu_timer t;
-		for (size_t i = 0; i < n; ++i) {
-			int el = elements[i];
-			int * j = lower_bound(a+0, a+i, el);
-			// shift [j, i) elements to [j+1, i+1)
-			copy_backward(j, a+i, a+i+1);
-			*j = el;
-		}
-		for (size_t i = 0; i < n; ++i) {
-			int el = other_elements[i];
-			int * j = lower_bound(a+0, a+n-i, el);
-			// shift [j+1, n-i) elements to [j, n-i-1)
-			copy(j+1, a+n-i, j);
-		}
+template <typename Container>
+inline void go(vector<int> & insert_keys, vector<int> & erase_keys, Container & data, size_t n) {
+	for (size_t i = 0; i < n; ++i) {
+		int el = insert_keys[i];
+		typename Container::iterator j = find(data, el);
+		data.insert(j, el);
 	}
+	for (size_t i = 0; i < n; ++i) {
+		int el = erase_keys[i];
+		typename Container::iterator j = find(data, el);
+		data.erase(j);
+	}
+}
+
+enum datastructure {
+	Set,
+	List,
+	Vector
+};
+
+typedef boost::timer::nanosecond_type nano_t;
+typedef pair<nano_t, pair<datastructure, size_t> > contestant;
+
+vector<int> insert_keys;
+vector<int> erase_keys;
+
+void init_aux(size_t n) {
+	if (insert_keys.size() == n) return;
+
+	boost::mt19937 r(n);
+
+	insert_keys.resize(n);
+	for (size_t i = 0; i < n; ++i) insert_keys[i] = i;
+	erase_keys = insert_keys;
+
+	shuffle(insert_keys.begin(), insert_keys.end(), r);
+	shuffle(erase_keys.begin(), erase_keys.end(), r);
+}
+
+template <typename Container>
+contestant go_timed(size_t n, Container & data, datastructure ds) {
+	init_aux(n);
+	boost::timer::cpu_timer t;
+	go(insert_keys, erase_keys, data, n);
+	t.stop();
+	return make_pair(t.elapsed().wall, make_pair(ds, n));
+}
+
+contestant go_set(size_t n) {
+	set<int> data;
+	return go_timed(n, data, Set);
+}
+
+contestant go_vector(size_t n) {
+	vector<int> data;
+	data.reserve(n);
+	return go_timed(n, data, Vector);
+}
+
+contestant go_list(size_t n) {
+	list<int> data;
+	return go_timed(n, data, List);
+}
+
+int main() {
+	priority_queue<contestant, vector<contestant>, greater<contestant> > contestants;
+	contestants.push(go_set(10));
+	contestants.push(go_vector(10));
+	contestants.push(go_list(10));
+
+	while (true) {
+		contestant least = contestants.top();
+		contestants.pop();
+		size_t n = least.second.second*13/10+1;
+		switch (least.second.first) {
+			case Set:
+				cout << "set     n = " << setw(9) << n << "  t = " << flush;
+				least = go_set(n);
+				break;
+			case Vector:
+				cout << "vector  n = " << setw(9) << n << "  t = " << flush;
+				least = go_vector(n);
+				break;
+			case List:
+				cout << "list    n = " << setw(9) << n << "  t = " << flush;
+				least = go_list(n);
+				break;
+		}
+		cout << fixed << setprecision(9) << least.first*1e-9 << endl;
+		contestants.push(least);
+	}
+
+	return 1;
 }
 
 // vim:set ts=4 sw=4 sts=4:
