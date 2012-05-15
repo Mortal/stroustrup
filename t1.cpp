@@ -27,17 +27,17 @@ int main(int argc, char ** argv) {
 	{
 		boost::timer::auto_cpu_timer t;
 		for (size_t i = 0; i < n; ++i) {
-			size_t j = 0;
 			int el = elements[i];
-			while (j < i && a[j] < el) ++j;
-			copy_backward(a+j, a+i, a+i+1);
-			a[j] = el;
+			int * j = lower_bound(a+0, a+i, el);
+			// shift [j, i) elements to [j+1, i+1)
+			copy_backward(j, a+i, a+i+1);
+			*j = el;
 		}
 		for (size_t i = 0; i < n; ++i) {
 			int el = other_elements[i];
-			size_t j = 0;
-			while (j+i < n && a[j] != el) ++j;
-			copy(a+j+1, a+n-i, a+j);
+			int * j = lower_bound(a+0, a+n-i, el);
+			// shift [j+1, n-i) elements to [j, n-i-1)
+			copy(j+1, a+n-i, j);
 		}
 	}
 }
