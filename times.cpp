@@ -14,23 +14,26 @@
 
 using namespace std;
 
+///////////////////////////////////////////////////////////////////////////////
 // Find first element in container greater than or equal to a given key.
+// (Similar to std::lower_bound.)
+///////////////////////////////////////////////////////////////////////////////
 template <typename Container, typename T>
 typename Container::iterator find(Container & c, const T & value);
 
-// For vectors, perform binary search.
+// For vectors, we perform binary search.
 template <typename T>
 typename vector<T>::iterator find(vector<T> & c, const T & value) {
 	return lower_bound(c.begin(), c.end(), value);
 }
 
-// For sets, perform binary tree search.
+// For sets, we perform binary tree search.
 template <typename T>
 typename set<T>::iterator find(set<T> & c, const T & value) {
 	return c.lower_bound(value);
 }
 
-// For lists, perform linear search.
+// For lists, we perform linear search.
 template <typename T>
 typename list<T>::iterator find(list<T> & c, const T & value) {
 	for (auto i = c.begin(); i != c.end(); ++i)
@@ -38,19 +41,42 @@ typename list<T>::iterator find(list<T> & c, const T & value) {
 	return c.end();
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// This is the algorithm we are timing.
+//
+// Given a sequence of keys to insert and a sequence of keys to erase:
+//
+// * First, we insert all the keys in the given insert order
+// * Next, we iterate through the container to verify that the reported order
+//   is actually sorted (penalises the red/black tree)
+// * Finally, we erase keys in the erase order
+//
+// The function init_aux sets up insert_keys and erase_keys.
+///////////////////////////////////////////////////////////////////////////////
 template <typename Container>
 inline void go(vector<int> & insert_keys, vector<int> & erase_keys, Container & data, size_t n) {
+	// Insert elements in insert order
 	for (size_t i = 0; i < n; ++i) {
 		int el = insert_keys[i];
 		typename Container::iterator j = find(data, el);
 		data.insert(j, el);
 	}
+
+	// Verify that the reported sequence is sorted
+	auto i = adjacent_find(data.begin(), data.end(), std::greater<typename Container::value_type>());
+	if (i != data.end()) cout << "Oh noes!" << endl;
+
+	// Erase elements in erase order
 	for (size_t i = 0; i < n; ++i) {
 		int el = erase_keys[i];
 		typename Container::iterator j = find(data, el);
 		data.erase(j);
 	}
 }
+
+///////////////////////////////////////////////////////////////////////////////
+// Helpers for timed runs.
+///////////////////////////////////////////////////////////////////////////////
 
 enum datastructure {
 	Set,
