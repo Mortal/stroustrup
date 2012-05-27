@@ -11,7 +11,7 @@
 #include <algorithm>
 #include <err.h>
 #include <boost/random.hpp>
-#include <boost/timer/timer.hpp>
+#include <chrono>
 
 using namespace std;
 
@@ -85,8 +85,10 @@ enum datastructure {
 	Vector
 };
 
-typedef boost::timer::nanosecond_type nano_t;
-typedef pair<nano_t, pair<datastructure, size_t> > contestant;
+typedef chrono::high_resolution_clock Clock;
+typedef Clock::time_point Time;
+typedef Clock::duration Duration;
+typedef pair<Duration, pair<datastructure, size_t> > contestant;
 
 vector<int> insert_keys;
 vector<int> erase_keys;
@@ -107,14 +109,14 @@ void init_aux(size_t n) {
 template <typename Container>
 contestant go_timed(size_t n, Container & data, datastructure ds) {
 	init_aux(n);
-	nano_t time;
+	Duration time;
 	try {
-		boost::timer::cpu_timer t;
+		Time begin = Clock::now();
 		go(insert_keys, erase_keys, data, n);
-		t.stop();
-		time = t.elapsed().wall;
+		Time end = Clock::now();
+		time = end-begin;
 	} catch (bad_alloc) {
-		time = numeric_limits<nano_t>::max();
+		time = Duration(numeric_limits<Duration::rep>::max());
 	}
 	return make_pair(time, make_pair(ds, n));
 }
@@ -134,6 +136,40 @@ contestant go_list(size_t n) {
 	list<int> data;
 	return go_timed(n, data, List);
 }
+
+
+///////////////////////////////////////////////////////////////////////////////
+/// Figure out how many decimals are needed to represent a duration with the
+/// given period as a fixed precision decimal value.
+///////////////////////////////////////////////////////////////////////////////
+
+// Residue is the ratio between denominator and numerator
+template <intmax_t Residue>
+struct calc_decimals;
+
+// Residue = 0 means the den. is greater than the num.
+template <>
+struct calc_decimals<0> {
+	static const size_t value = 0;
+};
+
+// Residue = 1 means the den. is equal to the num.
+template <>
+struct calc_decimals<1> {
+	static const size_t value = 0;
+};
+
+// Residue > 1 means we have decimals to represent
+template <intmax_t Residue>
+struct calc_decimals {
+	static const size_t value = 1+calc_decimals<Residue/10>::value;
+};
+
+template <typename Period>
+struct decimals {
+	static const size_t value = calc_decimals<Period::den/Period::num>::value;
+};
+
 
 int main() {
 	priority_queue<contestant, vector<contestant>, greater<contestant> > contestants;
@@ -159,10 +195,10 @@ int main() {
 				least = go_list(n);
 				break;
 		}
-		if (least.first == numeric_limits<nano_t>::max()) {
+		if (least.first.count() == numeric_limits<Duration::rep>::max()) {
 			cout << "insufficient memory" << endl;
 		} else {
-			cout << fixed << setprecision(9) << least.first*1e-9 << endl;
+			cout << fixed << setprecision(decimals<Duration::period>::value) << static_cast<double>(least.first.count())*Duration::period::num/Duration::period::den << endl;
 			contestants.push(least);
 		}
 	}
