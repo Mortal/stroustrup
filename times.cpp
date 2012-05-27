@@ -10,7 +10,7 @@
 #include <sstream>
 #include <algorithm>
 #include <err.h>
-#include <boost/random.hpp>
+#include <random>
 #include <chrono>
 
 using namespace std;
@@ -96,7 +96,7 @@ vector<int> erase_keys;
 void init_aux(size_t n) {
 	if (insert_keys.size() == n) return;
 
-	boost::mt19937 r(n);
+	mt19937 r(n);
 
 	insert_keys.resize(n);
 	iota(insert_keys.begin(), insert_keys.end(), 0);
