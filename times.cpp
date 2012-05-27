@@ -6,6 +6,7 @@
 #include <queue>
 #include <iostream>
 #include <iomanip>
+#include <limits>
 #include <sstream>
 #include <algorithm>
 #include <err.h>
@@ -106,10 +107,16 @@ void init_aux(size_t n) {
 template <typename Container>
 contestant go_timed(size_t n, Container & data, datastructure ds) {
 	init_aux(n);
-	boost::timer::cpu_timer t;
-	go(insert_keys, erase_keys, data, n);
-	t.stop();
-	return make_pair(t.elapsed().wall, make_pair(ds, n));
+	nano_t time;
+	try {
+		boost::timer::cpu_timer t;
+		go(insert_keys, erase_keys, data, n);
+		t.stop();
+		time = t.elapsed().wall;
+	} catch (bad_alloc) {
+		time = numeric_limits<nano_t>::max();
+	}
+	return make_pair(time, make_pair(ds, n));
 }
 
 contestant go_set(size_t n) {
@@ -134,7 +141,7 @@ int main() {
 	contestants.push(go_vector(10));
 	contestants.push(go_list(10));
 
-	while (true) {
+	while (!contestants.empty()) {
 		contestant least = contestants.top();
 		contestants.pop();
 		size_t n = least.second.second*13/10+1;
@@ -152,8 +159,12 @@ int main() {
 				least = go_list(n);
 				break;
 		}
-		cout << fixed << setprecision(9) << least.first*1e-9 << endl;
-		contestants.push(least);
+		if (least.first == numeric_limits<nano_t>::max()) {
+			cout << "insufficient memory" << endl;
+		} else {
+			cout << fixed << setprecision(9) << least.first*1e-9 << endl;
+			contestants.push(least);
+		}
 	}
 
 	return 1;
