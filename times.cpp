@@ -96,7 +96,7 @@ void init_aux(size_t n) {
 	boost::mt19937 r(n);
 
 	insert_keys.resize(n);
-	for (size_t i = 0; i < n; ++i) insert_keys[i] = i;
+	iota(insert_keys.begin(), insert_keys.end(), 0);
 	erase_keys = insert_keys;
 
 	shuffle(insert_keys.begin(), insert_keys.end(), r);
